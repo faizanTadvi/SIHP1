@@ -2,22 +2,23 @@
   "version": 2,
   "builds": [
     {
-      "src": "/api/index.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     },
     {
-      "src": "/static/index.html",
+      "src": "static/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/predict",
+      "src": "/api/(.*)",
       "dest": "/api/index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/static/index.html"
+      "dest": "/static/$1"
     }
   ]
 }
+

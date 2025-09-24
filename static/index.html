@@ -9,7 +9,7 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #22c55e; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -17,37 +17,29 @@
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
     <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6 md:p-10">
-        
         <div class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Pashu-Chitra 🐄</h1>
             <p class="text-gray-500 mt-2">AI-Powered Breed Identifier for Indian Livestock</p>
-            <p class="text-xs text-gray-400 mt-1">Team Hackstone - SIH 2025</p>
         </div>
-
         <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-green-500 hover:bg-gray-50 transition-all">
             <input type="file" id="image-input" class="hidden" accept="image/jpeg, image/png">
             <div id="upload-content">
                 <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
                 <p class="mt-4 text-sm text-gray-600"><span class="font-semibold text-green-600">Click to upload</span> or drag and drop</p>
-                <p class="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
             </div>
         </div>
-
         <div id="preview-area" class="hidden mt-6 text-center">
             <img id="image-preview" src="#" alt="Image Preview" class="max-h-64 mx-auto rounded-lg shadow-md">
-            <p id="filename" class="text-sm text-gray-500 mt-2"></p>
-            <button id="identify-btn" class="mt-4 w-full md:w-auto bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-transform hover:scale-105">Identify Breed</button>
+            <button id="identify-btn" class="mt-4 w-full md:w-auto bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">Identify Breed</button>
         </div>
-        
         <div id="result-area" class="hidden mt-8 text-center">
             <div id="loader" class="loader mx-auto"></div>
             <div id="result-content" class="hidden fade-in">
                  <p class="text-gray-600 text-lg">Identified Breed:</p>
-                 <p id="result-text" class="text-3xl font-bold text-red-600 mt-1"></p>
+                 <p id="result-text" class="text-3xl font-bold text-green-700 mt-1"></p>
                  <button id="reset-btn" class="mt-6 text-sm text-gray-500 hover:text-gray-800">Check another image</button>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -55,7 +47,6 @@
         const imageInput = document.getElementById('image-input');
         const previewArea = document.getElementById('preview-area');
         const imagePreview = document.getElementById('image-preview');
-        const filenameDisplay = document.getElementById('filename');
         const identifyBtn = document.getElementById('identify-btn');
         const resultArea = document.getElementById('result-area');
         const loader = document.getElementById('loader');
@@ -71,16 +62,10 @@
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    imagePreview.src = e.target.result;
-                    filenameDisplay.textContent = file.name;
-                    uploadArea.classList.add('hidden');
-                    previewArea.classList.remove('hidden');
-                    resultArea.classList.add('hidden');
-                    resultContent.classList.add('hidden');
-                };
-                reader.readAsDataURL(file);
+                imagePreview.src = URL.createObjectURL(file);
+                uploadArea.classList.add('hidden');
+                previewArea.classList.remove('hidden');
+                resultArea.classList.add('hidden');
             }
         }
 
@@ -91,55 +76,43 @@
             identifyBtn.disabled = true;
             identifyBtn.textContent = 'Analyzing...';
             
-            const file = imageInput.files[0];
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', imageInput.files[0]);
 
             try {
+                // This URL correctly points to the Vercel serverless function route
                 const response = await fetch('/api/predict', {
                     method: 'POST',
                     body: formData,
                 });
 
-                // --- FINAL FIX: A more robust way to handle any type of error response ---
                 if (!response.ok) {
-                    const responseBody = await response.text(); // Read the body ONCE as text
+                    // Try to read the error message from the server, whether it's JSON or text
+                    let errorText;
                     try {
-                        // Try to parse it as JSON
-                        const errorData = JSON.parse(responseBody);
-                        if (errorData && errorData.error) {
-                           throw new Error(errorData.error);
-                        }
-                    } catch (jsonError) {
-                        // If it's not JSON, the body itself is the error message (e.g., HTML error page)
-                        throw new Error(responseBody);
+                        const errorData = await response.json();
+                        errorText = errorData.error || 'Server responded with an unknown error.';
+                    } catch (e) {
+                        errorText = await response.text();
                     }
+                    throw new Error(errorText);
                 }
 
                 const data = await response.json();
-                displayResult(data.breed, false);
+                displayResult(data.breed || 'Could not parse response.');
 
             } catch (error) {
                 console.error('Error:', error);
-                displayResult(error.message, true);
+                displayResult(error.message);
             } finally {
                 identifyBtn.disabled = false;
                 identifyBtn.textContent = 'Identify Breed';
             }
         }
         
-        function displayResult(message, isError = false) {
+        function displayResult(message) {
             loader.classList.add('hidden');
             resultText.textContent = message;
-
-            if (isError) {
-                resultText.classList.remove('text-green-700');
-                resultText.classList.add('text-red-600');
-            } else {
-                resultText.classList.remove('text-red-600');
-                resultText.classList.add('text-green-700');
-            }
-            
             resultContent.classList.remove('hidden');
         }
 
