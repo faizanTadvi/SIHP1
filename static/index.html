@@ -101,29 +101,27 @@
                     body: formData,
                 });
 
-                // --- FIX: More robust error handling ---
+                // --- FINAL FIX: A more robust way to handle any type of error response ---
                 if (!response.ok) {
-                    let serverErrorMessage = `Server responded with status: ${response.status}`;
+                    const responseBody = await response.text(); // Read the body ONCE as text
                     try {
-                        // First, try to get the error message from a JSON response
-                        const errorData = await response.json();
+                        // Try to parse it as JSON
+                        const errorData = JSON.parse(responseBody);
                         if (errorData && errorData.error) {
-                           serverErrorMessage = errorData.error;
+                           throw new Error(errorData.error);
                         }
                     } catch (jsonError) {
-                        // If the response is not JSON, read it as plain text.
-                        console.warn("Response was not JSON, reading as text for error.");
-                        serverErrorMessage = await response.text();
+                        // If it's not JSON, the body itself is the error message (e.g., HTML error page)
+                        throw new Error(responseBody);
                     }
-                    throw new Error(serverErrorMessage);
                 }
 
                 const data = await response.json();
-                displayResult(data.breed, false); // false because it's not an error
+                displayResult(data.breed, false);
 
             } catch (error) {
                 console.error('Error:', error);
-                displayResult(error.message, true); // true because it is an error
+                displayResult(error.message, true);
             } finally {
                 identifyBtn.disabled = false;
                 identifyBtn.textContent = 'Identify Breed';
@@ -134,7 +132,6 @@
             loader.classList.add('hidden');
             resultText.textContent = message;
 
-            // Change text color based on whether it's an error or a success
             if (isError) {
                 resultText.classList.remove('text-green-700');
                 resultText.classList.add('text-red-600');
