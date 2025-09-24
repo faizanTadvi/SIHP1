@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pashu-Chitra: AI Breed Identifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #22c55e; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6 md:p-10">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Pashu-Chitra 🐄</h1>
+            <p class="text-gray-500 mt-2">AI-Powered Breed Identifier for Indian Livestock</p>
+            <p class="text-xs text-gray-400 mt-1">Team Hackstone - SIH 2025</p>
+        </div>
+
+        <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-green-500 hover:bg-gray-50 transition-all">
+            <input type="file" id="image-input" class="hidden" accept="image/jpeg, image/png">
+            <div id="upload-content">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                <p class="mt-4 text-sm text-gray-600"><span class="font-semibold text-green-600">Click to upload</span> or drag and drop</p>
+                <p class="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
+            </div>
+        </div>
+
+        <div id="preview-area" class="hidden mt-6 text-center">
+            <img id="image-preview" src="#" alt="Image Preview" class="max-h-64 mx-auto rounded-lg shadow-md">
+            <p id="filename" class="text-sm text-gray-500 mt-2"></p>
+            <button id="identify-btn" class="mt-4 w-full md:w-auto bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-transform hover:scale-105">Identify Breed</button>
+        </div>
+        
+        <div id="result-area" class="hidden mt-8 text-center">
+            <div id="loader" class="loader mx-auto"></div>
+            <div id="result-content" class="hidden fade-in">
+                 <p class="text-gray-600 text-lg">Identified Breed:</p>
+                 <p id="result-text" class="text-3xl font-bold text-green-700 mt-1"></p>
+                 <button id="reset-btn" class="mt-6 text-sm text-gray-500 hover:text-gray-800">Check another image</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // All your JS variables...
+        const uploadArea = document.getElementById('upload-area');
+        const imageInput = document.getElementById('image-input');
+        const previewArea = document.getElementById('preview-area');
+        const imagePreview = document.getElementById('image-preview');
+        const filenameDisplay = document.getElementById('filename');
+        const identifyBtn = document.getElementById('identify-btn');
+        const resultArea = document.getElementById('result-area');
+        const loader = document.getElementById('loader');
+        const resultContent = document.getElementById('result-content');
+        const resultText = document.getElementById('result-text');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // All your event listeners...
+        uploadArea.addEventListener('click', () => imageInput.click());
+        imageInput.addEventListener('change', handleFileSelect);
+        identifyBtn.addEventListener('click', handleIdentification);
+        resetBtn.addEventListener('click', resetState);
+
+        function handleFileSelect(event) {
+            // Same as before
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    filenameDisplay.textContent = file.name;
+                    uploadArea.classList.add('hidden');
+                    previewArea.classList.remove('hidden');
+                    resultArea.classList.add('hidden');
+                    resultContent.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function handleIdentification() {
+            // Same as before, but with updated URL
+            resultArea.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            resultContent.classList.add('hidden');
+            identifyBtn.disabled = true;
+            identifyBtn.textContent = 'Analyzing...';
+            
+            const file = imageInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // --- FIX: Updated the fetch URL for deployment ---
+                const response = await fetch('/api/predict', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Server error');
+                }
+
+                const data = await response.json();
+                displayResult(data.breed);
+
+            } catch (error) {
+                console.error('Error:', error);
+                displayResult(error.message);
+            } finally {
+                identifyBtn.disabled = false;
+                identifyBtn.textContent = 'Identify Breed';
+            }
+        }
+        
+        function displayResult(message) {
+            // Same as before
+            loader.classList.add('hidden');
+            resultText.textContent = message;
+            resultContent.classList.remove('hidden');
+        }
+
+        function resetState() {
+            // Same as before
+            uploadArea.classList.remove('hidden');
+            previewArea.classList.add('hidden');
+            resultArea.classList.add('hidden');
+            imageInput.value = '';
+        }
+    </script>
+</body>
+</html>
